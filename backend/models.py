@@ -1,6 +1,4 @@
-from flask_sqlalchemy import SQLAlchemy
-
-db = SQLAlchemy()
+from extensions import db
 
 # ---------------- USERS ----------------
 class User(db.Model):
@@ -15,6 +13,17 @@ class User(db.Model):
     status = db.Column(db.String(20), default="ACTIVE")
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     last_login = db.Column(db.DateTime)
+    profile_image = db.Column(db.String(300), nullable=True)
+
+# ---------------- OTP ----------------
+class OTP(db.Model):
+    __tablename__ = "otp"
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(150))
+    otp = db.Column(db.String(6))
+    expires_at = db.Column(db.DateTime)
+
 
 # ---------------- STUDENT PROFILE ----------------
 class StudentProfile(db.Model):
@@ -24,6 +33,43 @@ class StudentProfile(db.Model):
     skills = db.Column(db.JSON)
     progress_percentage = db.Column(db.Float, default=0)
     enrolled_course_count = db.Column(db.Integer, default=0)
+
+    current_streak = db.Column(db.Integer, default=0)
+    longest_streak = db.Column(db.Integer, default=0)
+    last_login_date = db.Column(db.Date)
+
+class Badge(db.Model):
+    __tablename__ = "badges"
+
+    badge_id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100)) # e.g., 'First Steps', 'Streak Master'
+    description = db.Column(db.String(255))
+    badge_type = db.Column(db.String(50)) # 'COURSE_COUNT', 'STREAK', 'QUIZ_EXPERT'
+    threshold = db.Column(db.Integer) # e.g., 5 (for 5 courses) or 15 (for 15 days streak)
+    image_url = db.Column(db.String(300))
+
+# ---------------- STUDENT BADGES (Many-to-Many) ----------------
+class StudentBadge(db.Model):
+    __tablename__ = "student_badges"
+
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey("users.user_id"))
+    badge_id = db.Column(db.Integer, db.ForeignKey("badges.badge_id"))
+    earned_at = db.Column(db.DateTime, server_default=db.func.now())
+
+from datetime import date, timedelta
+
+
+
+
+# ---------------- CERTIFICATES ----------------
+class Certificate(db.Model):
+    __tablename__ = "certificates"
+    certificate_id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey("users.user_id"))
+    course_id = db.Column(db.Integer, db.ForeignKey("course.course_id"))
+    issued_at = db.Column(db.DateTime, server_default=db.func.now())
+    file_path = db.Column(db.String(300)) # PDF location or URL
 
 
 # ---------------- INSTRUCTOR PROFILE ----------------
@@ -40,6 +86,7 @@ class InstructorProfile(db.Model):
     experience_years = db.Column(db.Integer)
     rating = db.Column(db.Float, default=0)
     course_given_count = db.Column(db.Integer, default=0)
+    credits = db.Column(db.Integer, default=0)
 
 
 # ---------------- ADMIN PROFILE ----------------
@@ -66,6 +113,9 @@ class Course(db.Model):
     duration = db.Column(db.Integer)
     difficulty_level = db.Column(db.String(50))
     rating = db.Column(db.Float, default=0)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    status = db.Column(db.String(20), default="PENDING") # 'PENDING', 'APPROVED', 'REJECTED'
+    admin_remarks = db.Column(db.Text, nullable=True)
 
 
 # ---------------- ENROLLMENT ----------------

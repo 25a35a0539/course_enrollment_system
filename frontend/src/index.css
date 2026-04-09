@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* .input {
+  @apply w-full p-2 border border-sky-400 rounded-lg mb-2 focus:ring-2 focus:ring-sky-500 outline-none;
+}
+
+.inputBox {
+  @apply flex items-center gap-2 border border-sky-400 px-2 rounded-lg mb-1;
+}
+
+.error {
+  @apply text-red-500 text-xs mb-2;
+}
+
+.btn {
+  @apply w-full bg-sky-500 text-white p-2 rounded-lg hover:bg-sky-600 transition;
+}
+
+.tag {
+  @apply bg-sky-100 text-sky-700 px-2 py-1 rounded cursor-pointer;
+}
+
+.upload {
+  @apply flex items-center gap-2 border p-2 rounded mb-3 cursor-pointer;
+} */
