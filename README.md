@@ -37,7 +37,7 @@
 
 | Admin & Instructor Portal | Student Experience & Gamification |
 |:---:|:---:|
-| [![Admin Demo](https://img.shields.io/badge/▶_Watch-Admin_Portal_Demo-FF0000?style=for-the-badge&logo=youtube)](https://youtube.com) | [![Student Demo](https://img.shields.io/badge/▶_Watch-Student_Portal_Demo-FF0000?style=for-the-badge&logo=youtube)](https://youtube.com) |
+| [![Admin Demo](VID-20260413-WA0077.mp4)] | [![Student Demo](https://img.shields.io/badge/▶_Watch-Student_Portal_Demo-FF0000?style=for-the-badge&logo=youtube)](https://youtube.com) |
 | *Course creation, user management, credit distribution* | *Enrollment, badge earning, quiz & certification flow* |
 
 ###  Screenshots
