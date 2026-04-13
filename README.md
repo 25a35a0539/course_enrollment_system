@@ -44,10 +44,12 @@
 
 | | |
 |:---:|:---:|
-| ![Dashboard](https://placehold.co/600x340/6366F1/white?text=Admin+Dashboard) | ![Course Builder](https://placehold.co/600x340/8B5CF6/white?text=Instructor+Course+Builder) |
+| ![Dashboard](IMG-20260413-WA0073.jpg) | ![Course Builder](IMG-20260413-WA0068.jpg) |
 | **Admin Dashboard** — User management & analytics | **Course Builder** — Lesson editor with video support |
-| ![Student Portal](https://placehold.co/600x340/06B6D4/white?text=Student+Learning+Portal) | ![Badge Gallery](https://placehold.co/600x340/10B981/white?text=3D+Badge+%26+Certificate+Gallery) |
+| ![Student Portal](IMG-20260413-WA0076.jpg) | ![Badge Gallery](IMG-20260413-WA0069.jpg) |
 | **Student Portal** — Progress tracking & enrollment | **Badge & Certificate Gallery** — Gamification hub |
+| ![Student Portal](IMG-20260413-WA0071.jpg) | ![Badge Gallery](IMG-20260413-WA0075.jpg) |
+| **Admin Portal** — Credits Managing | **Review & Feedback** — Course Review|
 
 </div>
 
