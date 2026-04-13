@@ -10,8 +10,8 @@ from dotenv import load_dotenv
 from flask_migrate import Migrate
 from extensions import db , mail
 from routes.instructor import instructor_bp
-from models import db, User, OTP, StudentProfile, InstructorProfile, AdminProfile
-
+from flask_jwt_extended import JWTManager
+from models import db, User, OTP, StudentProfile, InstructorProfile, AdminProfile, Course, Rating, Lesson
 
 from flask_jwt_extended import (
     JWTManager, create_access_token, create_refresh_token, 
@@ -25,33 +25,18 @@ CORS(app, resources={r"/*": {
     "allow_headers": ["Content-Type", "Authorization", "Access-Control-Allow-Origin"]
 }}, supports_credentials=True)
 
-# @app.after_request
-# def add_cors_headers(response):
-#     response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
-#     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-#     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-#     response.headers.add('Access-Control-Allow-Credentials', 'true')
-#     return response
+
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'SUPER_SECRET_KEY_SRI')
 app.config['JWT_IGNORE_METHODS'] = ['OPTIONS']
-
-
-
-
 load_dotenv()
-
 # ---------------- DATABASE ----------------
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-
 db.init_app(app)
 mail.init_app(app)
 migrate = Migrate(app, db)
-
 mail = Mail(app)
 jwt = JWTManager(app)
-
 # ---------------- MAIL CONFIG ----------------
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
@@ -59,9 +44,6 @@ app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME']=os.getenv("MAIL_USERNAME")
 app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 
-
-
-mail = Mail(app)
 
 
 # ---------------- SEND OTP ----------------
@@ -178,50 +160,6 @@ from flask_jwt_extended import create_access_token,create_refresh_token
 
 
 
-# @app.route('/auth/login', methods=['POST', 'OPTIONS'])
-# def login():
-#     if request.method == 'OPTIONS':
-#         return jsonify({'status': 'ok'}), 200
-#     data = request.json
-#     user = User.query.filter_by(email=data.get('email')).first()
-    
-#     if not user:
-#         return jsonify({"error": "User not found"}), 404
-
-#     # 🟢 1. Password Hashing Check (Brutal Truth: Plain text vadaku!)
-#     if bcrypt.checkpw(data['password'].encode(), user.password.encode()):
-        
-#         # 🔴 2. Instructor Pending Check
-#         if user.role == "INSTRUCTOR" and user.status == "PENDING":
-#             return jsonify({
-#                 "error": "Account Pending",
-#                 "message": "Your instructor account is under review. Please wait for Admin approval."
-#             }), 403 # 403 ante Forbidden/Access Denied
-
-#         # 🔵 3. Generate Token
-#         access_token = create_access_token(
-#             identity=str(user.user_id), 
-#             additional_claims={"role": user.role}
-#         )
-#         refresh_token = create_refresh_token(
-#             identity=str(user.user_id),
-#             additional_claims={"role":user.role}
-#         )
-#         data = request.get_json()
-        
-#         if not data:
-#             return jsonify({"error": "Missing JSON"}), 400
-#         # app.py - Login route lo identity logic
-
-#         return jsonify({
-#             "access_token": access_token,
-#             "refresh_token": refresh_token,
-#             "role": user.role,
-#             "user_id": user.user_id
-#         }), 200
-    
-#     return jsonify({"error": "Invalid Credentials"}), 401
-
 
 @app.route('/auth/login', methods=['POST', 'OPTIONS'])
 def login():
@@ -253,6 +191,8 @@ def login():
     
     return jsonify({"error": "Invalid Credentials"}), 401
 
+
+
 @app.route('/auth/refresh', methods=['POST'])
 @jwt_required(refresh=True) # Specially for refresh tokens
 def refresh():
@@ -261,30 +201,40 @@ def refresh():
     return jsonify({"access_token": new_access_token}), 200
 
 
+
 @app.route('/api/courses')
-def all_courses():
-    courses = Course.query.all()
-
-    return jsonify([{
-        "id": c.course_id,
-        "title": c.title,
-        "category": c.category,
-        "rating": c.rating
-    } for c in courses])
-
-
+def public_courses():
+    courses = Course.query.filter_by(status='APPROVED').all()
+    result = []
+    for c in courses:
+        # Fetch lessons to show syllabus preview
+        lessons = Lesson.query.filter_by(course_id=c.course_id).order_by(Lesson.order_no).all()
+        result.append({
+            "id": c.course_id,
+            "title": c.title,
+            "description": c.description,
+            "category": c.category,
+            "rating": c.rating,
+            "duration": c.duration,
+            "difficulty_level": c.difficulty_level,
+            "syllabus": [l.title for l in lessons] # 👈 Added Syllabus List
+        })
+    return jsonify(result)
 
 @app.route('/api/instructors')
-def instructors():
+def public_instructors():
     data = db.session.query(User, InstructorProfile).join(
         InstructorProfile, User.user_id == InstructorProfile.user_id
     ).all()
 
     return jsonify([{
+        "id": u.user_id,
         "name": u.name,
         "bio": i.bio,
-        "expertise": i.expertise
+        "expertise": i.expertise,
+        "credits": i.credits or 0 # 👈 Added Credits for sorting
     } for u, i in data])
+
 
 @app.route('/api/testimonials')
 def testimonials():
@@ -311,7 +261,50 @@ def upload_profile():
 
     return jsonify({"path": path})
 
-from flask_jwt_extended import JWTManager
+
+from flask import send_from_directory
+@app.route('/download/certificate/<filename>')
+def download_certificate(filename):
+    # Ensure this points to the exact folder where FPDF saved it
+    cert_dir = os.path.join(app.root_path, 'uploads', 'certificates')
+    return send_from_directory(cert_dir, filename)
+
+
+# 🚩 ADD THIS IN app.py (Before if __name__ == '__main__':)
+
+from models import Badge # Ensure Badge is imported
+
+def seed_default_badges():
+    with app.app_context():
+        if Badge.query.count() == 0:
+            badges_data = [
+                {"title": "Beginner's Step", "desc": "Enrolled in your first course.", "type": "ENROLLMENT", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/star.png"},
+                {"title": "On Fire", "desc": "Maintained a 3-day learning streak.", "type": "STREAK", "threshold": 3, "url": "https://img.icons8.com/3d-fluency/100/fire-element.png"},
+                {"title": "Unstoppable", "desc": "Maintained a 7-day learning streak.", "type": "STREAK", "threshold": 7, "url": "https://img.icons8.com/3d-fluency/100/calendar.png"},
+                {"title": "Quiz Novice", "desc": "Passed your first quiz.", "type": "QUIZ_EXPERT", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/test-passed.png"},
+                {"title": "Quiz Master", "desc": "Passed 5 quizzes successfully.", "type": "QUIZ_EXPERT", "threshold": 5, "url": "https://img.icons8.com/3d-fluency/100/trophy.png"},
+                {"title": "Perfectionist", "desc": "Scored a perfect 100% in a quiz.", "type": "PERFECT_SCORE", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/100-percent.png"},
+                {"title": "Fast Learner", "desc": "Completed your first course.", "type": "COURSE_COUNT", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/rocket.png"},
+                {"title": "Dedicated Scholar", "desc": "Completed 5 courses.", "type": "COURSE_COUNT", "threshold": 5, "url": "https://img.icons8.com/3d-fluency/100/graduation-cap.png"},
+                {"title": "Knowledge Seeker", "desc": "Enrolled in 5 different courses.", "type": "ENROLLMENT", "threshold": 5, "url": "https://img.icons8.com/3d-fluency/100/book.png"},
+                {"title": "Platform Legend", "desc": "Completed 10 courses. You are a legend!", "type": "COURSE_COUNT", "threshold": 10, "url": "https://img.icons8.com/3d-fluency/100/crown.png"}
+            ]
+            
+            for b in badges_data:
+                new_badge = Badge(
+                    title=b['title'], 
+                    description=b['desc'], 
+                    badge_type=b['type'], 
+                    threshold=b['threshold'], 
+                    image_url=b['url']
+                )
+                db.session.add(new_badge)
+            
+            db.session.commit()
+            print("🚀 10 Premium Badges Seeded Successfully!")
+
+# Call it before running the app
+seed_default_badges()
 
 
 jwt = JWTManager(app)
@@ -319,20 +312,16 @@ jwt = JWTManager(app)
 
 
 app.register_blueprint(instructor_bp, url_prefix='/api/instructor')
-# app.py lo idhi check chey
+
+
 from routes.admin import admin_bp
 app.register_blueprint(admin_bp, url_prefix='/api/admin') # 👈 '/api/admin' undali!
+
 from routes.student import student_bp
 app.register_blueprint(student_bp, url_prefix='/api/student')
 
-# 🚩 ADD THIS TO app.py TO FIX THE 404 DOWNLOAD ERROR
-from flask import send_from_directory
 
-@app.route('/download/certificate/<filename>')
-def download_certificate(filename):
-    # Ensure this points to the exact folder where FPDF saved it
-    cert_dir = os.path.join(app.root_path, 'uploads', 'certificates')
-    return send_from_directory(cert_dir, filename)
+
 
 if __name__ == "__main__":
     app.run(debug=True)

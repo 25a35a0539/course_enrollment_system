@@ -173,7 +173,7 @@ export default function Register() {
               <motion.div key="st1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                 <h1 className="text-3xl font-bold">Register</h1>
                 <div className="space-y-5">
-                  <UnderlineField label="Full Name" name="name" placeholder="Ramya Sri" onChange={handleChange} value={form.name} error={errors.name} />
+                  <UnderlineField label="Full Name" name="name" placeholder="James Mathew" onChange={handleChange} value={form.name} error={errors.name} />
                   <UnderlineField label="Email Address" name="email" placeholder="example@gmail.com" onChange={handleChange} value={form.email} error={errors.email} />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <UnderlineField 

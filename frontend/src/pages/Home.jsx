@@ -3,220 +3,353 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { 
   ArrowRight, Star, CheckCircle2, Users, BookOpen, 
-  MessageSquare, Layout, Shield
+  MessageSquare, Layout, Shield, X, ChevronRight, Award
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
-// Import your images (Solution 2: put in public folder and use path)
-const HERO_IMG = "/hero.png"; 
+
 
 export default function Home() {
   const navigate = useNavigate();
-  const [courses, setCourses] = useState([]);
-  const [instructors, setInstructors] = useState([]);
+  const hero = "../assets/hero1.png";
+  
+  // Data States
+  const [allCourses, setAllCourses] = useState([]);
+  const [topCourses, setTopCourses] = useState([]);
+  const [allInstructors, setAllInstructors] = useState([]);
+  const [topInstructors, setTopInstructors] = useState([]);
   const [reviews, setReviews] = useState([]);
+
+  // Modal States
+  const [selectedSyllabus, setSelectedSyllabus] = useState(null);
+  const [showAllCourses, setShowAllCourses] = useState(false);
+  const [showAllMentors, setShowAllMentors] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [cRes, iRes, tRes] = await Promise.all([
-          axios.get("http://127.0.0.1:5000/api/top-courses"),
+          axios.get("http://127.0.0.1:5000/api/courses"), 
           axios.get("http://127.0.0.1:5000/api/instructors"),
           axios.get("http://127.0.0.1:5000/api/testimonials")
         ]);
-        setCourses(cRes.data);
-        setInstructors(iRes.data);
+        
+        // Setup Courses
+        setAllCourses(cRes.data);
+        setTopCourses(cRes.data.slice(0, 3)); 
+
+        // Setup Mentors (Sort by highest credits, slice top 4)
+        const sortedMentors = iRes.data.sort((a, b) => b.credits - a.credits);
+        setAllInstructors(sortedMentors);
+        setTopInstructors(sortedMentors.slice(0, 4));
+
         setReviews(tRes.data);
-      } catch (err) { console.error("Fetch Error:", err); }
+      } catch (err) { 
+        console.error("Fetch Error:", err); 
+      }
     };
     fetchData();
   }, []);
 
   return (
-    <div className="bg-white font-sans text-slate-900 selection:bg-blue-600 selection:text-white">
+    <div className="bg-slate-50 font-sans text-slate-900 selection:bg-blue-600 selection:text-white relative">
       
-      {/* 🟦 NAVIGATION (Same as Register Branding) */}
-      <nav className="flex items-center justify-between px-6 lg:px-20 py-8 border-b border-slate-50 sticky top-0 bg-white/90 backdrop-blur-md z-50">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xl font-bold italic shadow-lg shadow-blue-100">E</div>
-          <span className="text-2xl font-black tracking-tighter uppercase">EduEnroll</span>
+      {/* 🟦 NAVIGATION */}
+      <nav className="flex items-center justify-between px-6 lg:px-20 py-6 border-b border-slate-200 sticky top-0 bg-white/80 backdrop-blur-xl z-40">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white text-xl font-bold shadow-md shadow-blue-200">E</div>
+          <span className="text-xl font-bold tracking-tight text-slate-900">EduEnroll</span>
         </div>
-        <div className="hidden md:flex gap-10 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+        <div className="hidden md:flex gap-8 text-xs font-bold uppercase tracking-widest text-slate-500">
           <a href="#courses" className="hover:text-blue-600 transition">Courses</a>
           <a href="#instructors" className="hover:text-blue-600 transition">Mentors</a>
           <a href="#contact" className="hover:text-blue-600 transition">Contact</a>
         </div>
-        <button 
-          onClick={() => navigate("/login")} 
-          className="bg-slate-900 text-white px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-slate-200"
-        >
+        <button onClick={() => navigate("/login")} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-blue-600 transition-colors shadow-sm">
           Login Portal
         </button>
       </nav>
 
-      {/* 🚀 HERO SECTION (Clean & Bold) */}
-      <section className="px-6 lg:px-20 py-24 flex flex-col lg:flex-row items-center gap-16">
-        <div className="flex-1 space-y-10 text-center lg:text-left">
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-            <p className="text-blue-600 text-[10px] font-black uppercase tracking-[0.3em] mb-4 italic underline decoration-2 underline-offset-8">Engineering Excellence</p>
-            <h1 className="text-6xl lg:text-8xl font-black tracking-tighter leading-[0.95] uppercase italic">
-              Learn Skills <br /> <span className="text-blue-600 underline decoration-slate-100">That Matter.</span>
+      {/* 🚀 HERO SECTION */}
+      <section className="px-6 lg:px-20 py-24 flex flex-col lg:flex-row items-center gap-16 bg-white">
+        <div className="flex-1 space-y-8 text-center lg:text-left">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+            <p className="text-blue-600 text-xs font-bold uppercase tracking-widest mb-4 bg-blue-50 inline-block px-3 py-1 rounded-full border border-blue-100">Engineering Excellence</p>
+            <h1 className="text-5xl lg:text-7xl font-black tracking-tighter leading-tight text-slate-900">
+              Learn Skills <br /> <span className="text-blue-600">That Matter.</span>
             </h1>
-            <p className="text-slate-400 text-sm font-medium max-w-md mt-8 leading-relaxed mx-auto lg:mx-0">
+            <p className="text-slate-500 text-base font-medium max-w-lg mt-6 leading-relaxed mx-auto lg:mx-0">
               High-quality, actionable guidance for full-stack developers and AI engineers. No sugarcoating, just real-world engineering.
             </p>
           </motion.div>
           <div className="flex flex-wrap justify-center lg:justify-start gap-4">
-            <button onClick={() => navigate("/register")} className="bg-blue-600 text-white px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-900 transition-all shadow-2xl shadow-blue-100 flex items-center gap-3">
-              Get Started Now <ArrowRight size={16} />
+            <button onClick={() => navigate("/register")} className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold text-sm hover:bg-slate-900 transition-colors shadow-lg shadow-blue-200 flex items-center gap-2">
+              Get Started Now <ArrowRight size={18} />
             </button>
           </div>
         </div>
-        <div className="flex-1 relative">
-           <div className="absolute inset-0 bg-blue-50 rounded-full blur-3xl -z-10 opacity-60" />
-           <motion.img 
-             initial={{ opacity: 0, scale: 0.9 }} 
-             animate={{ opacity: 1, scale: 1 }} 
-             src={HERO_IMG} 
-             alt="Hero" 
-             className="w-full max-w-lg mx-auto drop-shadow-2xl" 
-           />
+        <div className="flex-1 relative w-full max-w-lg">
+           <div className="absolute inset-0 bg-gradient-to-tr from-blue-100 to-indigo-50 rounded-full blur-3xl -z-10" />
+           <img src="https://i.pinimg.com/736x/cf/66/33/cf66334166ddd4c120148dc07c492449.jpg" alt="Coding" className="mx-auto drop-shadow-2xl animate-in zoom-in duration-700" />
         </div>
       </section>
 
-      {/* 📚 COURSES (Clean Cards) */}
-      <section id="courses" className="px-6 lg:px-20 py-32 bg-[#fcfdfe]">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-6">
-          <div className="space-y-4">
-            <h2 className="text-4xl font-black tracking-tighter uppercase italic underline decoration-blue-600 decoration-4">Our Curriculum</h2>
-            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic">Brutally honest roadmaps</p>
+      {/* 📚 COURSES SECTION */}
+      <section id="courses" className="px-6 lg:px-20 py-24 bg-slate-50">
+        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+          <div>
+            <h2 className="text-4xl font-black tracking-tight text-slate-900 mb-2">Our Curriculum</h2>
+            <p className="text-slate-500 font-medium">Brutally honest roadmaps for serious engineers.</p>
           </div>
-          <button onClick={() => navigate("/courses")} className="text-[10px] font-black uppercase tracking-widest border-b-4 border-slate-900 pb-1 hover:text-blue-600 hover:border-blue-600 transition">Explore All</button>
+          <button onClick={() => setShowAllCourses(true)} className="text-sm font-bold text-blue-600 bg-blue-50 px-5 py-2.5 rounded-xl hover:bg-blue-600 hover:text-white transition-colors flex items-center gap-2">
+            Explore All Courses <ArrowRight size={16}/>
+          </button>
         </div>
         
-        <div className="grid md:grid-cols-3 gap-10">
-          {courses.map(c => (
-            <motion.div whileHover={{ y: -10 }} key={c.id} className="bg-white p-10 rounded-[32px] border border-slate-100 shadow-sm flex flex-col justify-between group">
-              <div className="space-y-6">
-                <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 text-xl font-black italic">0{c.id}</div>
-                <h3 className="text-2xl font-black tracking-tight leading-none group-hover:text-blue-600 transition">{c.title}</h3>
-                <p className="text-slate-400 text-xs font-bold leading-relaxed">{c.description}</p>
-              </div>
-              <button className="mt-10 bg-slate-50 text-[10px] font-black uppercase py-4 rounded-xl tracking-widest group-hover:bg-blue-600 group-hover:text-white transition-all flex items-center justify-center gap-2">View Syllabus <ArrowRight size={12}/></button>
-            </motion.div>
+        <div className="grid md:grid-cols-3 gap-8">
+          {topCourses.map(c => (
+            <CourseCard key={c.id} course={c} onViewSyllabus={() => setSelectedSyllabus(c)} />
           ))}
         </div>
       </section>
 
-      {/* 🧑‍🏫 MENTORS SECTION */}
-      <section id="instructors" className="px-6 lg:px-20 py-32">
-        <div className="text-center mb-20">
-          <h2 className="text-4xl font-black tracking-tighter uppercase italic">The Mentors</h2>
-          <div className="h-1.5 w-20 bg-blue-600 mx-auto mt-4" />
+      {/* 🧑‍🏫 MENTORS SECTION (PROFESSIONAL REDESIGN) */}
+      <section id="instructors" className="px-6 lg:px-20 py-24 bg-white">
+        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+          <div>
+            <h2 className="text-4xl font-black tracking-tight text-slate-900 mb-2">Top Rated Mentors</h2>
+            <p className="text-slate-500 font-medium">Learn directly from the highest-ranked engineers.</p>
+          </div>
+          <button onClick={() => setShowAllMentors(true)} className="text-sm font-bold text-blue-600 bg-blue-50 px-5 py-2.5 rounded-xl hover:bg-blue-600 hover:text-white transition-colors flex items-center gap-2">
+            View All Mentors <ArrowRight size={16}/>
+          </button>
         </div>
-        <div className="grid md:grid-cols-3 gap-12">
-          {instructors.map((i, idx) => (
-            <div key={idx} className="text-center space-y-6">
-               <div className="w-48 h-48 bg-slate-100 rounded-full mx-auto overflow-hidden border-[8px] border-slate-50 group">
-                  {/* Placeholder for Profile */}
-                  <div className="w-full h-full bg-blue-600 flex items-center justify-center text-white text-4xl font-black italic">
-                    {i.name.charAt(0)}
+        
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {topInstructors.map(mentor => (
+            <MentorCard key={mentor.id} mentor={mentor} />
+          ))}
+        </div>
+      </section>
+
+
+      {/* ⭐ TESTIMONIALS SECTION (Dark Mode Contrast) */}
+      <section className="px-6 lg:px-20 py-24 bg-slate-900 text-white relative overflow-hidden">
+        {/* Background Watermark */}
+        <div className="absolute inset-0 opacity-5 pointer-events-none uppercase font-black text-[12vw] leading-none select-none flex items-center justify-center overflow-hidden">
+          FEEDBACK
+        </div>
+        
+        <div className="relative z-10 grid md:grid-cols-2 gap-16 items-center max-w-7xl mx-auto">
+           <div className="space-y-6">
+              <p className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-2">Student Success</p>
+              <h2 className="text-4xl lg:text-5xl font-black tracking-tight leading-tight">Voices of <br /> Excellence</h2>
+              <div className="flex gap-4 items-center mt-8">
+                 <div className="p-4 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-sm">
+                    <Users size={24} className="text-blue-400"/>
+                 </div>
+                 <p className="text-slate-300 text-sm font-medium max-w-[200px]">Join 5,000+ engineers building high-performance systems.</p>
+              </div>
+           </div>
+           
+           <div className="space-y-6">
+              {reviews.slice(0, 2).map((r, i) => (
+                <div key={i} className="bg-white/5 p-8 rounded-3xl border border-white/10 space-y-4 backdrop-blur-md hover:bg-white/10 transition-colors">
+                  <div className="flex gap-1 text-yellow-400">
+                    {[...Array(5)].map((_, idx) => (
+                      <Star key={idx} size={16} fill={idx < r.rating ? "currentColor" : "none"} />
+                    ))}
+                  </div>
+                  <p className="text-lg font-medium leading-relaxed text-slate-100">"{r.comment || "Amazing course! Highly recommended."}"</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400">— Verified Alumnus</p>
+                </div>
+              ))}
+           </div>
+        </div>
+      </section>
+
+      {/* 📧 CONTACT SECTION (Modern SaaS Form) */}
+      <section id="contact" className="px-6 lg:px-20 py-24 bg-white max-w-7xl mx-auto flex flex-col lg:flex-row gap-16">
+         <div className="flex-1 space-y-10">
+            <div>
+              <p className="text-blue-600 text-xs font-bold uppercase tracking-widest mb-3">Support & Inquiry</p>
+              <h2 className="text-4xl lg:text-5xl font-black tracking-tight text-slate-900">Let's <br /> Connect</h2>
+            </div>
+            
+            <div className="space-y-8 mt-8">
+               <div className="flex items-center gap-6 group">
+                  <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 transition-colors shadow-sm group-hover:bg-blue-600 group-hover:text-white">
+                     <Shield size={24}/>
+                  </div>
+                  <div>
+                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Secure Support</p>
+                     <p className="text-lg font-bold text-slate-900">support@eduenroll.com</p>
                   </div>
                </div>
-               <div className="space-y-1">
-                  <p className="text-blue-600 text-[9px] font-black uppercase tracking-[0.2em]">{i.expertise}</p>
-                  <h4 className="text-2xl font-black tracking-tight">{i.name}</h4>
-                  <p className="text-slate-400 text-[10px] font-bold italic max-w-[200px] mx-auto leading-relaxed mt-2">{i.bio}</p>
+               <div className="flex items-center gap-6 group">
+                  <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 transition-colors shadow-sm group-hover:bg-blue-600 group-hover:text-white">
+                     <MessageSquare size={24}/>
+                  </div>
+                  <div>
+                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Chat With Us</p>
+                     <p className="text-lg font-bold text-slate-900">+91 98765 43210</p>
+                  </div>
                </div>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ⭐ TESTIMONIALS (Clean Layout) */}
-      <section className="bg-slate-900 text-white py-32 px-6 lg:px-20 relative overflow-hidden">
-         <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none uppercase font-black text-[20vw] leading-none select-none italic">FEEDBACK</div>
-         <div className="relative z-10 grid md:grid-cols-2 gap-16 items-center">
-            <div className="space-y-6">
-               <h2 className="text-5xl font-black tracking-tighter uppercase italic leading-none">Voices of <br /> Success</h2>
-               <div className="flex gap-4">
-                  <div className="p-4 bg-white/5 rounded-2xl border border-white/10"><Users size={24} className="text-blue-500"/></div>
-                  <p className="text-slate-400 text-xs font-bold max-w-[200px]">Join 5,000+ engineers building high-performance systems.</p>
-               </div>
-            </div>
-            <div className="space-y-8">
-               {reviews.slice(0, 2).map((r, i) => (
-                 <div key={i} className="bg-white/5 p-10 rounded-[40px] border border-white/10 space-y-4">
-                   <div className="flex gap-1 text-yellow-500">
-                     {[...Array(5)].map((_, idx) => <Star key={idx} size={14} fill={idx < r.rating ? "currentColor" : "none"} />)}
-                   </div>
-                   <p className="text-lg font-bold italic leading-relaxed">"{r.comment}"</p>
-                   <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">— Alumnus, EduEnroll</p>
-                 </div>
-               ))}
-            </div>
          </div>
-      </section>
-
-      {/* 📧 CONTACT (Underline Form Style) */}
-      <section id="contact" className="px-6 lg:px-20 py-32 flex flex-col lg:flex-row gap-20">
-         <div className="flex-1 space-y-12">
-            <h2 className="text-5xl font-black tracking-tighter uppercase italic leading-none">Let's <br /> Connect</h2>
-            <div className="space-y-8">
-               <ContactInfo icon={<Shield size={20}/>} label="SECURE SUPPORT" detail="support@eduenroll.com" />
-               <ContactInfo icon={<MessageSquare size={20}/>} label="CHAT WITH US" detail="+91 98765 43210" />
-            </div>
-         </div>
-         <div className="flex-1">
-            <form className="bg-slate-50 p-12 rounded-[48px] space-y-8 border border-slate-100 shadow-sm">
-               <UnderlineInput label="YOUR FULL NAME" placeholder="K. S.T. Ramya Sri" />
-               <UnderlineInput label="EMAIL ADDRESS" placeholder="ramya@example.com" />
+         
+         <div className="flex-[1.5]">
+            <form className="bg-slate-50 p-8 md:p-10 rounded-[32px] space-y-6 border border-slate-200 shadow-sm">
                <div className="space-y-2">
-                  <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">YOUR MESSAGE</label>
-                  <textarea placeholder="Ask us anything..." className="w-full bg-transparent border-b-2 border-slate-200 focus:border-blue-600 outline-none py-4 text-sm font-bold h-32 resize-none transition-all" />
+                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Your Full Name</label>
+                 <input type="text" placeholder="John Doe" className="w-full bg-white border border-slate-200 focus:border-blue-500 outline-none px-5 py-4 rounded-xl text-sm font-semibold transition-all shadow-sm" />
                </div>
-               <button className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-900 transition-all shadow-xl shadow-blue-100">Send Message</button>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Email Address</label>
+                 <input type="email" placeholder="john@example.com" className="w-full bg-white border border-slate-200 focus:border-blue-500 outline-none px-5 py-4 rounded-xl text-sm font-semibold transition-all shadow-sm" />
+               </div>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Your Message</label>
+                  <textarea placeholder="Ask us anything..." className="w-full bg-white border border-slate-200 focus:border-blue-500 outline-none px-5 py-4 rounded-xl text-sm font-semibold h-32 resize-none transition-all shadow-sm" />
+               </div>
+               <button type="button" onClick={(e) => {e.preventDefault(); alert("Message Sent Successfully! We will get back to you.");}} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold uppercase text-xs tracking-widest hover:bg-slate-900 transition-colors shadow-md mt-4">
+                 Send Message
+               </button>
             </form>
          </div>
       </section>
 
       {/* 🏁 FOOTER */}
-      <footer className="px-6 lg:px-20 py-16 border-t border-slate-50 flex flex-col md:flex-row justify-between items-center gap-8">
+      <footer className="px-6 lg:px-20 py-10 bg-slate-900 text-slate-400 flex flex-col md:flex-row justify-between items-center gap-6">
          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-slate-900 text-white rounded flex items-center justify-center font-black italic text-[10px]">E</div>
-            <span className="text-sm font-black tracking-tighter uppercase">EduEnroll</span>
+            <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold text-sm">E</div>
+            <span className="text-lg font-bold text-white">EduEnroll</span>
          </div>
-         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">© 2026 EDUEPROLL ACADEMY. ALL RIGHTS RESERVED.</p>
-         {/* <div className="flex gap-6 text-slate-300">
-            <Github size={18} className="hover:text-blue-600 transition cursor-pointer" />
-            <Linkedin size={18} className="hover:text-blue-600 transition cursor-pointer" />
-            <Twitter size={18} className="hover:text-blue-600 transition cursor-pointer" />
-         </div> */}
+         <p className="text-sm font-medium">© 2026 EduEnroll Academy. All rights reserved.</p>
       </footer>
+
+
+      {/* ===================================================================== */}
+      {/* 🚩 MODALS SECTION */}
+      {/* ===================================================================== */}
+      <AnimatePresence>
+        
+        {/* 1. SYLLABUS MODAL */}
+        {selectedSyllabus && (
+          <ModalOverlay onClose={() => setSelectedSyllabus(null)}>
+             <div className="text-center mb-6">
+                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4"><BookOpen size={24}/></div>
+                <h3 className="text-2xl font-black text-slate-900 mb-2">{selectedSyllabus.title}</h3>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Course Syllabus</p>
+             </div>
+             <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                {selectedSyllabus.syllabus && selectedSyllabus.syllabus.length > 0 ? (
+                  selectedSyllabus.syllabus.map((lesson, idx) => (
+                    <div key={idx} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                       <span className="w-8 h-8 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">{idx + 1}</span>
+                       <p className="font-semibold text-slate-700 text-sm">{lesson}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-slate-400 font-medium py-10">Syllabus is currently being updated.</p>
+                )}
+             </div>
+          </ModalOverlay>
+        )}
+
+        {/* 2. ALL COURSES MODAL */}
+        {showAllCourses && (
+          <ModalOverlay onClose={() => setShowAllCourses(false)} maxWidth="max-w-5xl">
+             <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
+               <h3 className="text-3xl font-black text-slate-900">All Available Courses</h3>
+               <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-sm font-bold">{allCourses.length} Courses</span>
+             </div>
+             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[65vh] overflow-y-auto pr-4 custom-scrollbar">
+                {allCourses.map(c => (
+                  <CourseCard key={c.id} course={c} onViewSyllabus={() => setSelectedSyllabus(c)} />
+                ))}
+             </div>
+          </ModalOverlay>
+        )}
+
+        {/* 3. ALL MENTORS MODAL */}
+        {showAllMentors && (
+          <ModalOverlay onClose={() => setShowAllMentors(false)} maxWidth="max-w-5xl">
+             <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
+               <h3 className="text-3xl font-black text-slate-900">Our Expert Mentors</h3>
+               <span className="bg-orange-50 text-orange-600 px-3 py-1 rounded-lg text-sm font-bold flex items-center gap-1"><Award size={16}/> Top Ranked</span>
+             </div>
+             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[65vh] overflow-y-auto pr-4 custom-scrollbar">
+                {allInstructors.map(mentor => (
+                  <MentorCard key={mentor.id} mentor={mentor} />
+                ))}
+             </div>
+          </ModalOverlay>
+        )}
+
+      </AnimatePresence>
     </div>
   );
 }
 
-// 🛠️ REUSABLE COMPONENTS
-function UnderlineInput({ label, ...props }) {
+// =====================================================================
+// 🛠️ REUSABLE UI COMPONENTS
+// =====================================================================
+
+function CourseCard({ course, onViewSyllabus }) {
   return (
-    <div className="space-y-2 group">
-      <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1 group-focus-within:text-blue-600 transition-colors">{label}</label>
-      <input {...props} className="w-full bg-transparent border-b-2 border-slate-200 focus:border-blue-600 outline-none py-4 text-sm font-bold transition-all placeholder:text-slate-200" />
+    <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 flex flex-col justify-between transition-all">
+      <div>
+        <div className="flex justify-between items-start mb-4">
+           <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider">{course.category || "General"}</span>
+           <span className="flex items-center gap-1 text-xs font-bold text-slate-700"><Star size={14} className="text-orange-400 fill-orange-400"/> {(course.rating || 0).toFixed(1)}</span>
+        </div>
+        <h3 className="text-xl font-bold tracking-tight leading-snug text-slate-900 mb-3">{course.title}</h3>
+        <p className="text-slate-500 text-sm font-medium leading-relaxed line-clamp-3 mb-6">{course.description}</p>
+      </div>
+      <button onClick={onViewSyllabus} className="w-full bg-slate-50 text-slate-700 font-bold text-sm py-3.5 rounded-xl hover:bg-slate-900 hover:text-white transition-colors flex items-center justify-center gap-2">
+        View Syllabus <BookOpen size={16}/>
+      </button>
     </div>
   );
 }
 
-function ContactInfo({ icon, label, detail }) {
+function MentorCard({ mentor }) {
   return (
-    <div className="flex items-center gap-6 group">
-       <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
-          {icon}
-       </div>
-       <div>
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-          <p className="text-lg font-black tracking-tight">{detail}</p>
-       </div>
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:border-blue-300 hover:shadow-md transition-all text-center flex flex-col items-center">
+      <div className="relative mb-4">
+        <div className="w-20 h-20 bg-gradient-to-tr from-blue-600 to-indigo-500 text-white rounded-full flex items-center justify-center text-3xl font-black shadow-md border-4 border-white">
+          {mentor.name[0].toUpperCase()}
+        </div>
+        <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-sm">
+          <div className="bg-orange-100 text-orange-600 rounded-full p-1.5"><Award size={14}/></div>
+        </div>
+      </div>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">{mentor.expertise || "Senior Engineer"}</span>
+      <h3 className="text-lg font-bold text-slate-900 mb-2 leading-tight">{mentor.name}</h3>
+      <p className="text-xs text-slate-500 font-medium line-clamp-2 mb-4 px-2">{mentor.bio || "Passionate about building scalable systems and teaching the next generation of engineers."}</p>
+      <div className="mt-auto bg-slate-50 border border-slate-100 w-full py-2.5 rounded-xl flex justify-center items-center gap-1.5 text-sm font-bold text-slate-700">
+        <Star size={16} className="text-yellow-400 fill-yellow-400" /> {mentor.credits} Credits
+      </div>
     </div>
+  );
+}
+
+function ModalOverlay({ children, onClose, maxWidth = "max-w-md" }) {
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 md:p-6"
+    >
+       <motion.div 
+         initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+         className={`bg-white rounded-[32px] p-8 md:p-10 w-full relative shadow-2xl ${maxWidth}`}
+       >
+           <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-red-100 hover:text-red-600 transition-colors">
+              <X size={20}/>
+           </button>
+           {children}
+       </motion.div>
+    </motion.div>
   );
 }

@@ -26,7 +26,7 @@ def is_admin():
     
     return str(role).upper() == 'ADMIN'
 
-def admin_required():
+def admin_required(): 
     def wrapper(fn):
         @wraps(fn)
         def decorator(*args, **kwargs):
@@ -285,6 +285,11 @@ def get_all_users():
     
     return jsonify(users_list), 200
 
+
+
+# Ensure these are imported at the top of admin.py!
+# from models import ..., StudentBadge, Certificate
+
 @admin_bp.route('/user-details/<int:user_id>', methods=['GET'])
 @jwt_required()
 def get_user_details(user_id):
@@ -293,10 +298,29 @@ def get_user_details(user_id):
 
     if user.role == 'STUDENT':
         profile = StudentProfile.query.filter_by(user_id=user_id).first()
+        
+        # 🚩 NEW: Fetch all rich stats for the student
+        badges_count = StudentBadge.query.filter_by(student_id=user_id).count()
+        certs_count = Certificate.query.filter_by(student_id=user_id).count()
+        completed_courses = Enrollment.query.filter_by(student_id=user_id, progress=100).count()
+        total_enrolled = Enrollment.query.filter_by(student_id=user_id).count()
+        
+        # 🚩 FIX: Safely parse skills so React's .map() never crashes
+        skills_list = []
+        if profile and profile.skills:
+            if isinstance(profile.skills, list):
+                skills_list = profile.skills
+            elif isinstance(profile.skills, str):
+                skills_list = [s.strip() for s in profile.skills.split(',') if s.strip()]
+
         profile_data = {
-            "skills": profile.skills if profile else "",
-            "progress": profile.progress_percentage if profile else 0,
-            "education": profile.education if hasattr(profile, 'education') else "N/A"
+            "skills": skills_list,
+            "current_streak": profile.current_streak if profile else 0,
+            "longest_streak": profile.longest_streak if profile else 0,
+            "badges_count": badges_count,
+            "certs_count": certs_count,
+            "completed_courses": completed_courses,
+            "total_enrolled": total_enrolled
         }
     else: # INSTRUCTOR
         profile = InstructorProfile.query.filter_by(user_id=user_id).first()
@@ -307,7 +331,6 @@ def get_user_details(user_id):
             "rating": profile.rating if profile else 0
         }
 
-    # Combine everything
     full_details = {
         "user_id": user.user_id,
         "name": user.name,
@@ -315,19 +338,75 @@ def get_user_details(user_id):
         "phone": user.phone,
         "status": user.status,
         "joined_at": user.created_at.strftime('%Y-%m-%d'),
-        "profile_image": f"http://127.0.0.1:5000/static/uploads/{profile.profile_pic}" if profile and hasattr(profile, 'profile_pic') and profile.profile_pic else None,
         **profile_data
     }
     return jsonify(full_details), 200
+
+# 🚩 admin.py lo existing remove_user ni replace chey mariyu kotha route add chey
+
+from models import (
+    db, User, Course, Enrollment, InstructorProfile, StudentProfile, 
+    Certificate, LessonProgress, StudentInterest, StudentBadge, 
+    Quiz, Question, Option, QuizResult, Rating, Lesson
+)
 
 @admin_bp.route('/remove-user/<int:user_id>', methods=['DELETE'])
 @jwt_required()
 def remove_user(user_id):
     if not is_admin(): return jsonify({"error": "Forbidden"}), 403
     user = User.query.get_or_404(user_id)
-    db.session.delete(user)
-    db.session.commit()
-    return jsonify({"message": "User removed successfully"}), 200
+    
+    try:
+        # 🛡️ Step 1: Delete all dependent data to avoid Foreign Key errors
+        if user.role == 'STUDENT':
+            StudentProfile.query.filter_by(user_id=user_id).delete()
+            StudentInterest.query.filter_by(student_id=user_id).delete()
+            Enrollment.query.filter_by(student_id=user_id).delete()
+            LessonProgress.query.filter_by(user_id=user_id).delete()
+            StudentBadge.query.filter_by(student_id=user_id).delete()
+            Certificate.query.filter_by(student_id=user_id).delete()
+            Rating.query.filter_by(student_id=user_id).delete()
+            QuizResult.query.filter_by(student_id=user_id).delete()
+        
+        elif user.role == 'INSTRUCTOR':
+            # Instructor delete aithe vallu create chesina courses orphan aipothai. 
+            # Industry practice prakaram courses ni orphan ga unchutham or course delete chestham.
+            # Ikkada InstructorProfile delete chesthunnam (ondelete CASCADE schema lo unte set).
+            InstructorProfile.query.filter_by(user_id=user_id).delete()
+
+        # Step 2: Delete the actual user record
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({"message": f"User {user.name} removed successfully"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@admin_bp.route('/course-details/<int:course_id>', methods=['GET'])
+@jwt_required()
+def get_course_details(course_id):
+    if not is_admin(): return jsonify({"error": "Forbidden"}), 403
+    
+    course = Course.query.get_or_404(course_id)
+    lessons = Lesson.query.filter_by(course_id=course_id).order_by(Lesson.order_no).all()
+    quizzes = Quiz.query.filter_by(course_id=course_id).all()
+    
+    quiz_info = []
+    for q in quizzes:
+        q_count = Question.query.filter_by(quiz_id=q.quiz_id).count()
+        quiz_info.append({
+            "quiz_id": q.quiz_id,
+            "total_marks": q.total_marks,
+            "questions_count": q_count
+        })
+
+    return jsonify({
+        "title": course.title,
+        "description": course.description,
+        "lessons": [{"title": l.title, "duration": l.duration} for l in lessons],
+        "quizzes": quiz_info
+    }), 200
 
 
 @admin_bp.route('/manage-credits', methods=['POST'])
@@ -362,3 +441,23 @@ def remove_course(course_id):
     db.session.delete(course)
     db.session.commit()
     return jsonify({"message": "Course removed from platform"}), 200
+
+# 🚩 ADD THIS ROUTE TO admin.py
+@admin_bp.route('/all-courses', methods=['GET'])
+@jwt_required()
+def get_all_courses():
+    if not is_admin(): return jsonify({"error": "Forbidden"}), 403
+    
+    courses = Course.query.all()
+    output = []
+    for c in courses:
+        instructor = User.query.get(c.instructor_id)
+        output.append({
+            "course_id": c.course_id,
+            "title": c.title,
+            "category": c.category,
+            "status": c.status,
+            "instructor": instructor.name if instructor else "Unknown"
+        })
+    
+    return jsonify(output), 200

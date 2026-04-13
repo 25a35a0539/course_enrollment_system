@@ -84,7 +84,7 @@ const handleLogin = async () => {
                <span className="text-2xl font-bold tracking-tighter">EduEnroll</span>
             </div>
 
-            {/* 🔥 REGISTER LO VAADINA URL E IDHI */}
+           
             <motion.img 
    initial={{ opacity: 0, scale: 0.9 }}
    animate={{ opacity: 1, scale: 1 }}

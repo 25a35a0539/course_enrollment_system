@@ -234,9 +234,7 @@ def get_quiz_results():
         })
     return jsonify(output), 200
 
-# 🚩 FIX 2: Added 'OPTIONS' to methods and handled the preflight check
-# ---------------------------------------------------------
-# 🚩 FIX 1 & 5: ROBUST QUIZ FETCHING & MULTIPLE QUIZ SUBMISSION
+
 # ---------------------------------------------------------
 @student_bp.route('/get-quiz/<int:course_id>', methods=['GET', 'OPTIONS'])
 @jwt_required()
@@ -295,15 +293,19 @@ def submit_quiz():
             db.session.add(new_result)
             
     db.session.commit()
+   
+        
+        # 🚩 CALL THIS AFTER SAVING QUIZ RESULT
+    check_and_award_badges(user_id) 
+
+      
 
     return jsonify({
         "score": score, "total": total, 
         "percentage": percentage, "passed": is_passed
     }), 200
 
-# ---------------------------------------------------------
-# 🚩 FIX 4: THE 95% CAPPING RULE & DYNAMIC PROGRESS CALCULATION
-# ---------------------------------------------------------
+
 @student_bp.route('/course-content/<int:course_id>', methods=['GET'])
 @jwt_required()
 def get_course_content(course_id):
@@ -362,53 +364,24 @@ def get_course_content(course_id):
     }), 200
 
 
-# @student_bp.route('/course-content/<int:course_id>', methods=['GET', 'OPTIONS'])
-# @jwt_required()
-# def get_course_content(course_id):
-#     if request.method == 'OPTIONS':
-#         return jsonify({"status": "ok"}), 200
-#     user_id = get_jwt_identity()
-    
-#     # 1. Lessons logic
-#     course_lessons = Lesson.query.filter_by(course_id=course_id).order_by(Lesson.order_no).all()
-    
-#     # 🚩 Ikkade nuvvu mistake chesthunnav, list mapping correct ga rayi
-#     lessons_data = [{
-#         "lesson_id": l.lesson_id,
-#         "title": l.title,
-#         "url": l.url,
-#         "duration": l.duration,
-#         "is_completed": LessonProgress.query.filter_by(
-#             user_id=user_id, lesson_id=l.lesson_id, is_completed=True
-#         ).first() is not None
-#     } for l in course_lessons]
-
-#     # 2. Progress logic
-#     total_lessons = len(course_lessons)
-#     completed_count = LessonProgress.query.filter(
-#         LessonProgress.user_id == user_id,
-#         LessonProgress.lesson_id.in_([l.lesson_id for l in course_lessons]) if total_lessons > 0 else [],
-#         LessonProgress.is_completed == True
-#     ).count()
-
-#     # (Previous quiz logic ikkada add chey...)
-    
-#     return jsonify({
-#         "course_id": course_id,
-#         "lessons": lessons_data, # 👈 Ippudu idi define ayyi untundi
-#         "current_progress": int((completed_count/total_lessons*95)) if total_lessons > 0 else 0
-#     }), 200
 
 
-@student_bp.route('/reviews', methods=['GET', 'POST'])
+from sqlalchemy import func # Ensure this is imported at the top!
+
+@student_bp.route('/reviews', methods=['GET', 'POST', 'OPTIONS'])
 @jwt_required()
 def handle_reviews():
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
+        
     user_id = get_jwt_identity()
 
     if request.method == 'POST':
         data = request.json
-        # Check if already rated
-        existing = Rating.query.filter_by(student_id=user_id, course_id=data['course_id']).first()
+        course_id = data['course_id']
+        
+        # 1. Add or Update the Student's Review
+        existing = Rating.query.filter_by(student_id=user_id, course_id=course_id).first()
         
         if existing:
             existing.rating = data['rating']
@@ -416,16 +389,39 @@ def handle_reviews():
         else:
             new_review = Rating(
                 student_id=user_id,
-                course_id=data['course_id'],
+                course_id=course_id,
                 rating=data['rating'],
                 comments=data['comments']
             )
             db.session.add(new_review)
         
-        db.session.commit()
+        db.session.commit() # Save the review first
+
+        # ---------------------------------------------------------
+        # 🚩 FIX: RECALCULATE THE AVERAGE COURSE RATING
+        # ---------------------------------------------------------
+        # Get the average of all ratings for this specific course
+        avg_rating = db.session.query(func.avg(Rating.rating)).filter(Rating.course_id == course_id).scalar()
+        
+        if avg_rating is not None:
+            course = Course.query.get(course_id)
+            if course:
+                # Round to 1 decimal place (e.g., 4.6)
+                course.rating = round(float(avg_rating), 1) 
+                
+                # Bonus 🚀: Update Instructor's Overall Rating too!
+                instructor_profile = InstructorProfile.query.filter_by(user_id=course.instructor_id).first()
+                if instructor_profile:
+                    # Calculate average of all courses taught by this instructor
+                    instr_avg = db.session.query(func.avg(Course.rating)).filter(Course.instructor_id == course.instructor_id).scalar()
+                    instructor_profile.rating = round(float(instr_avg), 1) if instr_avg else 0.0
+
+                db.session.commit() # Save the updated averages
+        # ---------------------------------------------------------
+
         return jsonify({"message": "Review submitted successfully!"}), 201
 
-    # GET: Fetch enrolled courses and their ratings (if any)
+    # ... (Keep your existing GET logic down here) ...
     enrolled = db.session.query(Course, Rating).join(
         Enrollment, Course.course_id == Enrollment.course_id
     ).outerjoin(
@@ -437,7 +433,6 @@ def handle_reviews():
         reviews_data.append({
             "course_id": course.course_id,
             "title": course.title,
-            "instructor": course.instructor_id, # Or join with User for name
             "rating": rating.rating if rating else 0,
             "comments": rating.comments if rating else ""
         })
@@ -446,32 +441,6 @@ def handle_reviews():
 
 
 
-
-# 🚩 REPLACE THIS ROUTE IN student.py
-@student_bp.route('/profile/update', methods=['PUT', 'OPTIONS'])
-@jwt_required()
-def update_profile():
-    if request.method == 'OPTIONS':
-        return jsonify({"status": "ok"}), 200
-        
-    data = request.json
-    user_id = get_jwt_identity() # 🚩 BUG FIXED: Hardcoded '1' theesesi idhi pettam
-    
-    profile = StudentProfile.query.get(user_id)
-    user = User.query.get(user_id)
-
-    if not profile or not user:
-        return jsonify({"error": "User not found"}), 404
-
-    # Update User Table
-    user.name = data.get('name', user.name)
-    user.phone = data.get('phone', user.phone)
-    
-    # Update Profile Table
-    profile.skills = data.get('skills', profile.skills) 
-    
-    db.session.commit()
-    return jsonify({"message": "Profile Updated Successfully"}), 200
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -494,6 +463,35 @@ def get_tricky_question():
     ]
     return random.choice(questions)
 
+
+# 1. PROFILE UPDATE ROUTE FIX
+@student_bp.route('/profile/update', methods=['PUT', 'OPTIONS'])
+@jwt_required()
+def update_profile():
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
+        
+    data = request.json
+    user_id = get_jwt_identity()
+    
+    profile = StudentProfile.query.get(user_id)
+    user = User.query.get(user_id)
+
+    if not profile or not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Update User Table
+    user.name = data.get('name', user.name)
+    user.phone = data.get('phone', user.phone)
+    
+    # 🚩 FIX: Ensure skills is ALWAYS saved as a valid JSON Array, never NULL
+    profile.skills = data.get('skills', profile.skills or []) 
+    
+    db.session.commit()
+    return jsonify({"message": "Profile Updated Successfully"}), 200
+
+
+# 2. DASHBOARD MAIN ROUTE FIX
 @student_bp.route('/dashboard-main', methods=['GET'])
 @jwt_required()
 def get_dashboard_main():
@@ -502,7 +500,8 @@ def get_dashboard_main():
     profile = StudentProfile.query.get(user_id)
 
     if not profile:
-        profile = StudentProfile(user_id=user_id, current_streak=0, longest_streak=0)
+        # 🚩 FIX: Added `skills=[]` so new profiles don't crash the Admin Dashboard
+        profile = StudentProfile(user_id=user_id, current_streak=0, longest_streak=0, skills=[])
         db.session.add(profile)
         db.session.commit()
 
@@ -547,12 +546,12 @@ def get_dashboard_main():
     recom_data = [{"id": c.course_id, "title": c.title, "category": c.category, "difficulty": c.difficulty_level} for c in recommended]
 
     return jsonify({
-        "user_name": user.name, # 🚩 Separated Name
-        "tricky_question": get_tricky_question(), # 🚩 Separated Question
-        "profile": { # 🚩 BUG FIXED: Added profile details for the Edit Profile tab
+        "user_name": user.name, 
+        "tricky_question": get_tricky_question(), 
+        "profile": { 
             "name": user.name,
             "phone": user.phone,
-            "skills": profile.skills or []
+            "skills": profile.skills or [] # 🚩 FIX: Fallback to empty array
         },
         "stats": {
             "enrolled": enrolled_courses_count,
@@ -566,26 +565,28 @@ def get_dashboard_main():
         "recommended_courses": recom_data
     }), 200
 
-# 🚩 NEW ROUTE: Fetch Badges for the new Badges Page
-@student_bp.route('/badges', methods=['GET'])
+from models import Badge, StudentBadge
+
+# ---------------------------------------------------------
+# 🚩 ADD THIS ROUTE TO student.py
+# ---------------------------------------------------------
+@student_bp.route('/badges', methods=['GET', 'OPTIONS'])
 @jwt_required()
-def get_all_badges():
+def get_my_badges():
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
+        
     user_id = get_jwt_identity()
     
-    # Auto-Seed Badges if database is empty (So you get cool 3D images immediately!)
-    if Badge.query.count() == 0:
-        db.session.add_all([
-            Badge(title="First Blood", description="Complete your first course.", badge_type="COURSE_COUNT", threshold=1, image_url="https://img.icons8.com/3d-fluency/94/graduation-cap.png"),
-            Badge(title="Knowledge Junkie", description="Complete 5 courses.", badge_type="COURSE_COUNT", threshold=5, image_url="https://img.icons8.com/3d-fluency/94/100-percents.png"),
-            Badge(title="3-Day Fire", description="Maintain a 3-day login streak.", badge_type="STREAK", threshold=3, image_url="https://img.icons8.com/3d-fluency/94/fire-element.png"),
-            Badge(title="7-Day Scholar", description="Maintain a 7-day login streak.", badge_type="STREAK", threshold=7, image_url="https://img.icons8.com/3d-fluency/94/crown.png")
-        ])
-        db.session.commit()
-
+    # Fetch all platform badges
     all_badges = Badge.query.all()
+    
+    # Fetch what the student has actually earned
     earned_badges = StudentBadge.query.filter_by(student_id=user_id).all()
-    earned_ids = {eb.badge_id: eb.earned_at for eb in earned_badges}
-
+    
+    # Map earned badge IDs to the date they were earned
+    earned_map = {eb.badge_id: eb.earned_at.strftime("%d %b %Y") for eb in earned_badges}
+    
     result = []
     for b in all_badges:
         result.append({
@@ -593,9 +594,11 @@ def get_all_badges():
             "title": b.title,
             "description": b.description,
             "image_url": b.image_url,
-            "earned": b.badge_id in earned_ids,
-            "earned_at": earned_ids[b.badge_id].strftime('%b %d, %Y') if b.badge_id in earned_ids else None
+            # Frontend uses these true/false flags to show lock/unlock icons
+            "earned": b.badge_id in earned_map, 
+            "earned_at": earned_map.get(b.badge_id, None)
         })
+        
     return jsonify(result), 200
 
 @student_bp.route('/explore-courses', methods=['GET'])
@@ -690,3 +693,126 @@ def get_full_profile():
 
 
 
+from models import db, StudentBadge, Badge, Enrollment, QuizResult, StudentProfile
+
+# 🚩 AUTO-AWARD BADGES HELPER FUNCTION
+def check_and_award_badges(student_id):
+    # 1. Gather Student Stats
+    enrolled_count = Enrollment.query.filter_by(student_id=student_id).count()
+    completed_courses = Enrollment.query.filter_by(student_id=student_id, progress=100).count()
+    passed_quizzes = QuizResult.query.filter_by(student_id=student_id, is_passed=True).count()
+    perfect_quizzes = QuizResult.query.filter(QuizResult.student_id == student_id, QuizResult.percentage == 100).count() # Make sure percentage is calculated if you use this
+    
+    profile = StudentProfile.query.filter_by(user_id=student_id).first()
+    streak = profile.current_streak if profile else 0
+
+    # 2. Get all badges
+    all_badges = Badge.query.all()
+    
+    # 3. Check what they already have
+    earned_badges_ids = [b.badge_id for b in StudentBadge.query.filter_by(student_id=student_id).all()]
+
+    new_badges_awarded = []
+
+    # 4. Check eligibility and Award
+    for badge in all_badges:
+        if badge.badge_id in earned_badges_ids:
+            continue # Already earned
+
+        eligible = False
+        if badge.badge_type == 'ENROLLMENT' and enrolled_count >= badge.threshold:
+            eligible = True
+        elif badge.badge_type == 'COURSE_COUNT' and completed_courses >= badge.threshold:
+            eligible = True
+        elif badge.badge_type == 'QUIZ_EXPERT' and passed_quizzes >= badge.threshold:
+            eligible = True
+        elif badge.badge_type == 'STREAK' and streak >= badge.threshold:
+            eligible = True
+        elif badge.badge_type == 'PERFECT_SCORE' and perfect_quizzes >= badge.threshold:
+            eligible = True
+
+        if eligible:
+            new_student_badge = StudentBadge(student_id=student_id, badge_id=badge.badge_id)
+            db.session.add(new_student_badge)
+            new_badges_awarded.append(badge.title)
+
+    if new_badges_awarded:
+        db.session.commit()
+        print(f"🎉 Awarded Badges to {student_id}: {new_badges_awarded}")
+
+
+# ---------------------------------------------------------
+# 🚩 RUN THIS ROUTE ONCE TO CREATE BADGES IN DATABASE
+# ---------------------------------------------------------
+@student_bp.route('/generate-badges', methods=['GET'])
+def generate_badges():
+    if Badge.query.count() == 0:
+        badges_data = [
+            {"title": "Beginner's Step", "desc": "Enrolled in your first course.", "type": "ENROLLMENT", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/star.png"},
+            {"title": "On Fire", "desc": "Maintained a 3-day learning streak.", "type": "STREAK", "threshold": 3, "url": "https://img.icons8.com/3d-fluency/100/fire-element.png"},
+            {"title": "Unstoppable", "desc": "Maintained a 7-day learning streak.", "type": "STREAK", "threshold": 7, "url": "https://img.icons8.com/3d-fluency/100/calendar.png"},
+            {"title": "Quiz Novice", "desc": "Passed your first quiz.", "type": "QUIZ_EXPERT", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/test-passed.png"},
+            {"title": "Quiz Master", "desc": "Passed 5 quizzes successfully.", "type": "QUIZ_EXPERT", "threshold": 5, "url": "https://img.icons8.com/3d-fluency/100/trophy.png"},
+            {"title": "Perfectionist", "desc": "Scored a perfect 100% in a quiz.", "type": "PERFECT_SCORE", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/100-percent.png"},
+            {"title": "Fast Learner", "desc": "Completed your first course.", "type": "COURSE_COUNT", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/rocket.png"},
+            {"title": "Dedicated Scholar", "desc": "Completed 5 courses.", "type": "COURSE_COUNT", "threshold": 5, "url": "https://img.icons8.com/3d-fluency/100/graduation-cap.png"},
+            {"title": "Knowledge Seeker", "desc": "Enrolled in 5 different courses.", "type": "ENROLLMENT", "threshold": 5, "url": "https://img.icons8.com/3d-fluency/100/book.png"},
+            {"title": "Platform Legend", "desc": "Completed 10 courses. You are a legend!", "type": "COURSE_COUNT", "threshold": 10, "url": "https://img.icons8.com/3d-fluency/100/crown.png"}
+        ]
+        
+        for b in badges_data:
+            new_badge = Badge(
+                title=b['title'], 
+                description=b['desc'], 
+                badge_type=b['type'], 
+                threshold=b['threshold'], 
+                image_url=b['url']
+            )
+            db.session.add(new_badge)
+        
+        db.session.commit()
+        return jsonify({"message": "10 Premium Badges Successfully Created in Database! 🎉"}), 200
+
+    return jsonify({"message": "Badges already exist in Database! 🚀"}), 200
+
+# ---------------------------------------------------------
+# 🚩 RUN THIS ROUTE ONCE TO RESET & FIX BROKEN BADGES
+# ---------------------------------------------------------
+@student_bp.route('/reset-badges', methods=['GET'])
+def reset_badges():
+    try:
+        # 1. Delete old broken badges and student relationships
+        StudentBadge.query.delete()
+        Badge.query.delete()
+        db.session.commit()
+
+        # 2. Add the 10 Premium 3D Badges
+        badges_data = [
+            {"title": "Beginner's Step", "desc": "Enrolled in your first course.", "type": "ENROLLMENT", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/star.png"},
+            {"title": "On Fire", "desc": "Maintained a 3-day learning streak.", "type": "STREAK", "threshold": 3, "url": "https://img.icons8.com/3d-fluency/100/fire-element.png"},
+            {"title": "Unstoppable", "desc": "Maintained a 7-day learning streak.", "type": "STREAK", "threshold": 7, "url": "https://img.icons8.com/3d-fluency/100/calendar.png"},
+            {"title": "Quiz Novice", "desc": "Passed your first quiz.", "type": "QUIZ_EXPERT", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/test-passed.png"},
+            {"title": "Quiz Master", "desc": "Passed 5 quizzes successfully.", "type": "QUIZ_EXPERT", "threshold": 5, "url": "https://img.icons8.com/3d-fluency/100/trophy.png"},
+            {"title": "Perfectionist", "desc": "Scored a perfect 100% in a quiz.", "type": "PERFECT_SCORE", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/100-percent.png"},
+            {"title": "Fast Learner", "desc": "Completed your first course.", "type": "COURSE_COUNT", "threshold": 1, "url": "https://img.icons8.com/3d-fluency/100/rocket.png"},
+            {"title": "Dedicated Scholar", "desc": "Completed 5 courses.", "type": "COURSE_COUNT", "threshold": 5, "url": "https://img.icons8.com/3d-fluency/100/graduation-cap.png"},
+            {"title": "Knowledge Seeker", "desc": "Enrolled in 5 different courses.", "type": "ENROLLMENT", "threshold": 5, "url": "https://img.icons8.com/3d-fluency/100/book.png"},
+            {"title": "Platform Legend", "desc": "Completed 10 courses. You are a legend!", "type": "COURSE_COUNT", "threshold": 10, "url": "https://img.icons8.com/3d-fluency/100/crown.png"}
+        ]
+        
+        for b in badges_data:
+            new_badge = Badge(
+                title=b['title'], 
+                description=b['desc'], 
+                badge_type=b['type'], 
+                threshold=b['threshold'], 
+                image_url=b['url']
+            )
+            db.session.add(new_badge)
+        
+        db.session.commit()
+        return jsonify({"message": "Broken Badges Deleted! 10 Premium Badges Successfully Created! 🎉"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
