@@ -326,7 +326,7 @@ This project was developed for academic purposes at Pragati Engineering College.
 
 <div align="center">
 
-Built with ❤️ by Team EduEnroll · Pragati Engineering College · 2024–25
+Built with ❤️ by Team EduEnroll · Pragati Engineering College · 2025–26
 
 ⭐ **If this project helped you, please give it a star!** ⭐
 
