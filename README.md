@@ -196,7 +196,7 @@ Upon reaching 100% course completion, EduEnroll:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/KSTRamyaSri/EduEnroll.git
+git clone https://github.com/KSTRamyaSri/course_enroll_system.git
 cd EduEnroll
 
 # 2. Set up a virtual environment
