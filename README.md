@@ -37,18 +37,18 @@
 
 | Admin & Instructor Portal | Student Experience & Gamification |
 |:---:|:---:|
-| [![Admin Demo](VID-20260413-WA0077.mp4)(VID-20260413-WA0077.mp4)] | [![Student Demo](https://img.shields.io/badge/▶_Watch-Student_Portal_Demo-FF0000?style=for-the-badge&logo=youtube)](https://youtube.com) |
+| [![Admin Demo](output_screens/VID-20260413-WA0077.mp4)(VID-20260413-WA0077.mp4)] | [![Student Demo](https://img.shields.io/badge/▶_Watch-Student_Portal_Demo-FF0000?style=for-the-badge&logo=youtube)](https://youtube.com) |
 | *Course creation, user management, credit distribution* | *Enrollment, badge earning, quiz & certification flow* |
 
 ###  Screenshots
 
 | | |
 |:---:|:---:|
-| ![Dashboard](IMG-20260413-WA0073.jpg) | ![Course Builder](IMG-20260413-WA0068.jpg) |
+| ![Dashboard](output_screens/IMG-20260413-WA0073.jpg) | ![Course Builder](output_screens/IMG-20260413-WA0068.jpg) |
 | **Admin Dashboard** — User management & analytics | **Course Builder** — Lesson editor with video support |
-| ![Student Portal](IMG-20260413-WA0076.jpg) | ![Badge Gallery](IMG-20260413-WA0069.jpg) |
+| ![Student Portal](output_screens/IMG-20260413-WA0076.jpg) | ![Badge Gallery](output_screens/IMG-20260413-WA0069.jpg) |
 | **Student Portal** — Progress tracking & enrollment | **Badge & Certificate Gallery** — Gamification hub |
-| ![Student Portal](IMG-20260413-WA0071.jpg) | ![Badge Gallery](IMG-20260413-WA0075.jpg) |
+| ![Student Portal](output_screens/IMG-20260413-WA0071.jpg) | ![Badge Gallery](output_screens/IMG-20260413-WA0075.jpg) |
 | **Admin Portal** — Credits Managing | **Review & Feedback** — Course Review|
 
 </div>
