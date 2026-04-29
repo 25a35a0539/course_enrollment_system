@@ -290,6 +290,17 @@ npm run dev
 
 ```
 EduEnroll/
+├── frontend/
+│   ├── src/
+│   │   ├── components/      # Reusable UI components
+│   │   ├── pages/           # Admin, Instructor, Student page views
+│   │   ├── hooks/           # Custom React hooks
+│   │   ├── services/        # API call functions
+│   │   └── assets/          # 3D badge images, icons
+│   ├── index.html
+│   ├── vite.config.js
+│   └── tailwind.config.js
+│
 ├── backend/
 │   ├── app/
 │   │   ├── models/          # SQLAlchemy database models
@@ -301,16 +312,9 @@ EduEnroll/
 │   ├── requirements.txt
 │   └── .env.example
 │
-├── frontend/
-│   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   ├── pages/           # Admin, Instructor, Student page views
-│   │   ├── hooks/           # Custom React hooks
-│   │   ├── services/        # API call functions
-│   │   └── assets/          # 3D badge images, icons
-│   ├── index.html
-│   ├── vite.config.js
-│   └── tailwind.config.js
+├── documentations_ppt/      # Project documentation & presentations
+│
+├── output_screens/          # Application screenshots & demo media
 │
 └── README.md
 ```
